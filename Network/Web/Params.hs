@@ -143,7 +143,8 @@ badStatus status = n `elem` "45"
 {-|
   Field key of HTTP header.
 -}
-data FieldKey = FkAcceptLanguage
+data FieldKey = FkAccept
+              | FkAcceptLanguage
               | FkCacheControl
               | FkConnection
               | FkContentLength
@@ -167,7 +168,8 @@ data FieldKey = FkAcceptLanguage
 
 fieldKeyStringList :: [(FieldKey, S.ByteString)]
 fieldKeyStringList =
-    [ (FkAcceptLanguage    , "Accept-Language")
+    [ (FkAccept            , "Accept")
+    , (FkAcceptLanguage    , "Accept-Language")
     , (FkCacheControl      , "Cache-Control")
     , (FkConnection        , "Connection")
     , (FkContentLength     , "Content-Length")
