@@ -10,6 +10,7 @@
 
 {-# OPTIONS -Wall #-}
 module Network.Web.Server.Basic (serveHTTP,
+                                 serveHTTPMapIO,
                                  basicServer,
                                  module Network.Web.Server.Params) where
 
@@ -46,6 +47,7 @@ import Text.Printf
 
 {-|
   Run an HTTP server, using a default BasicConfig.
+  If you need to perform IO in the site mapping function (e.g. to check for the existence of files), use 'serveHTTPMapIO',
 -}
 serveHTTP :: Maybe FilePath -- ^ Directory to write logfiles, "access.log" and "error.log".  Will be created if it doesn't exist.
                             -- if Nothing, errors will be written to stderr
@@ -53,7 +55,20 @@ serveHTTP :: Maybe FilePath -- ^ Directory to write logfiles, "access.log" and "
           -> S.ByteString   -- ^ Server name
           -> (Request -> Path)  -- ^ site mapping function
           -> IO ()
-serveHTTP m'logPath httpPort servName sitemap = do
+serveHTTP m'logPath httpPort servName sitemap =
+    serveHTTPMapIO m'logPath httpPort servName (return . sitemap)
+
+{-|
+  Run an HTTP server, using a default BasicConfig.
+  Can perform IO in the site mapping function.
+-}
+serveHTTPMapIO :: Maybe FilePath -- ^ Directory to write logfiles, "access.log" and "error.log".  Will be created if it doesn't exist.
+                                 -- if Nothing, errors will be written to stderr
+               -> Int            -- ^ HTTP port
+               -> S.ByteString   -- ^ Server name
+               -> (Request -> IO Path)  -- ^ site mapping function, in IO
+               -> IO ()
+serveHTTPMapIO m'logPath httpPort servName sitemapIO = do
     (accHandler,errHandler,logwait) <- case m'logPath of
         Nothing -> return (const (return ()), hPutStrLn stderr, return ())
         Just logPath -> do
@@ -85,7 +100,7 @@ serveHTTP m'logPath httpPort servName sitemap = do
         topHandler tcpi = basicServer $ defaultConfig {
               serverName = servName
             , tcpInfo = tcpi
-            , mapper = sitemap
+            , mapper = sitemapIO
             }
         runserver = withSocketsDo $ do
             sock <- listenOn (PortNumber $ fromIntegral httpPort)
@@ -204,7 +219,7 @@ lookupAndParseDate :: FieldKey -> Request -> Maybe UTCTime
 lookupAndParseDate key req = lookupField key req >>= parseDate
 
 tryGet :: BasicConfig -> Request -> [String] -> IO (Maybe Response)
-tryGet cnf req langs = tryGet' $ mapper cnf req
+tryGet cnf req langs = tryGet' =<< mapper cnf req
   where
     tryGet' None          = return Nothing
     tryGet' (File file)   = tryGetFile cnf req file langs
@@ -276,7 +291,7 @@ range size rng = case skipAndSize (S.unpack rng) size of
 ----------------------------------------------------------------
 
 tryHead :: BasicConfig -> Request -> [String] -> IO (Maybe Response)
-tryHead cnf req langs = tryHead' (mapper cnf req)
+tryHead cnf req langs = tryHead' =<< mapper cnf req
   where
     tryHead' None        = return Nothing
     tryHead' (PathCGI _) = return Nothing
@@ -308,9 +323,10 @@ redirectURI uri =
       else Just uri { uriPath = path `S.append` "/" }
 
 tryRedirect :: BasicConfig -> Request -> [String] -> IO (Maybe Response)
-tryRedirect cnf req langs = maybe (return Nothing)
-    (\ruri -> tryRedirect' (mapper cnf $ rreq ruri) ruri)
-    (redirectURI uri)
+tryRedirect cnf req langs = case redirectURI uri of
+    Nothing   -> return Nothing
+    Just ruri -> do path <- mapper cnf $ rreq ruri
+                    tryRedirect' path ruri
   where
     uri = reqURI req
     rreq ruri = req {reqURI = ruri}
@@ -330,7 +346,9 @@ tryRedirectFile cnf ruri file lang = do
 ----------------------------------------------------------------
 
 tryPost :: BasicConfig -> Request -> IO Response
-tryPost cnf req = case mapper cnf req of
+tryPost cnf req = do
+  path <- mapper cnf req
+  case path of
     PathCGI cgi -> fromMaybe undefined <$> tryGetCGI cnf req cgi
     Handler resp-> resp
     _           -> return responseBadRequest

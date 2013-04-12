@@ -17,7 +17,7 @@ import System.Posix.Files
 -}
 data BasicConfig = BasicConfig {
    -- | A mapper from 'URI' to 'Path'.
-   mapper :: Request -> Path
+   mapper :: Request -> IO Path
    -- | Resource obtaining function. The second argument is
    --   (offset of the resource, and length from the offset).
  , obtain :: FilePath -> Maybe (Integer,Integer) -> IO L.ByteString
