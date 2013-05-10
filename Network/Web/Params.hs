@@ -163,6 +163,8 @@ data FieldKey = FkAccept
               | FkSetCookie2
               | FkStatus
               | FkTransferEncoding
+              | FkAcceptEncoding -- ^ sent by client
+              | FkContentEncoding -- ^ returned by server
               | FkOther S.ByteString
               deriving (Eq,Show,Ord)
 
@@ -187,6 +189,8 @@ fieldKeyStringList =
     , (FkServer            , "Server")
     , (FkSetCookie2        , "Set-Cookie2")
     , (FkStatus            , "Status")
+    , (FkAcceptEncoding    , "Accept-Encoding" )
+    , (FkContentEncoding   , "Content-Encoding" )
     , (FkTransferEncoding  , "Transfer-Encoding" )
     ]
 
