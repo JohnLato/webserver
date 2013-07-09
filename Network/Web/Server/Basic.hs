@@ -14,6 +14,7 @@ module Network.Web.Server.Basic (serveHTTP,
                                  basicServer,
                                  module Network.Web.Server.Params) where
 
+import qualified Codec.Compression.GZip as GZip
 import Control.Applicative
 import Control.Concurrent (forkIO)
 import Control.Concurrent.MVar
@@ -248,7 +249,9 @@ tryGetFile' cnf req file lang = info cnf file' >>= maybe (return Nothing) get
       case mst of
         Just OK -> do
           val <- obtain cnf file' Nothing
-          return . Just $ response OK val size ct modified
+          return . Just $ if isGzipRequest req
+            then responseGzip OK val ct modified
+            else response OK val size ct modified
         Just st@(PartialContent skip len) -> do
           val <- obtain cnf file' $ Just (skip,len)
           let rangeSpec = S.pack $ printf "bytes %d-%d/*" skip (skip+len-1)
@@ -287,6 +290,12 @@ range :: Integer -> S.ByteString -> Maybe Status
 range size rng = case skipAndSize (S.unpack rng) size of
   Nothing         -> Just RequestedRangeNotSatisfiable
   Just (skip,len) -> Just (PartialContent skip len)
+
+isGzipRequest :: Request -> Bool
+isGzipRequest req = do
+    case lookupField FkAcceptEncoding req of
+        Just codings -> any (== "gzip") [ S.takeWhile (/= ';') c | c <- S.split ',' codings ]
+        _            -> False
 
 ----------------------------------------------------------------
 
@@ -364,6 +373,13 @@ response :: Status -> L.ByteString -> Integer -> CT -> HttpDate -> Response
 response st val len ct modified = makeResponse2 st (Just val) (Just len) kvs
   where
     kvs = [(FkContentType,ct),(FkLastModified,modified)]
+
+responseGzip :: Status -> L.ByteString -> CT -> HttpDate -> Response
+responseGzip st val ct modified = makeResponse2 st (Just bytes) (Just len) kvs
+  where
+    bytes = GZip.compress val
+    len = fromIntegral (L.length bytes)
+    kvs = [(FkContentType,ct),(FkLastModified,modified),(FkContentEncoding,"gzip")]
 
 ----------------------------------------------------------------
 
