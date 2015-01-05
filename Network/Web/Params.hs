@@ -134,7 +134,7 @@ toStatus _     = Nothing
   Returning 'True' for 4xx and 5xx.
 -}
 badStatus :: Status -> Bool
-badStatus status = n `elem` "45"
+badStatus status = n `elem` ['4', '5']
   where
     n:_ = show status
 

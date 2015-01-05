@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, CPP #-}
+{-# LANGUAGE OverloadedStrings, CPP, FlexibleContexts #-}
 
 {-# OPTIONS_GHC -fno-warn-dodgy-imports #-}
 module Network.Web.Server.CGI (tryGetCGI) where

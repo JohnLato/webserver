@@ -1,9 +1,18 @@
+{-# LANGUAGE CPP #-}
 module Network.Web.Date (parseDate, utcToDate, HttpDate) where
 
 import Control.Monad
 import qualified Data.ByteString.Char8 as S
+
 import Data.Time
-import System.Locale
+
+#ifdef VERSION_old_locale
+import System.Locale(defaultTimeLocale,  TimeLocale)
+
+parseTimeM :: Bool -> TimeLocale -> String -> String -> Maybe UTCTime
+parseTimeM = const parseTime
+#endif
+
 
 type HttpDate = S.ByteString
 
@@ -33,10 +42,10 @@ preferredFormat = rfc1123Format
 ----------------------------------------------------------------
 
 rfc1123Date :: String -> Maybe UTCTime
-rfc1123Date = parseTime defaultTimeLocale preferredFormat
+rfc1123Date = parseTimeM True defaultTimeLocale preferredFormat
 
 rfc850Date :: String -> Maybe UTCTime
-rfc850Date str = parseTime defaultTimeLocale rfc850Format str >>= y2k
+rfc850Date str = parseTimeM True defaultTimeLocale rfc850Format str >>= y2k
   where
     y2k utct = let (y,m,d) = toGregorian $ utctDay utct
                in if y < 1950
@@ -44,7 +53,7 @@ rfc850Date str = parseTime defaultTimeLocale rfc850Format str >>= y2k
                   else Just utct
 
 asctimeDate :: String -> Maybe UTCTime
-asctimeDate = parseTime defaultTimeLocale asctimeFormat
+asctimeDate = parseTimeM True defaultTimeLocale asctimeFormat
 
 ----------------------------------------------------------------
 
