@@ -9,6 +9,11 @@ Description:            A simple but practical HTTP server library.
 Category:               Network
 Cabal-Version:          >= 1.6
 Build-Type:             Simple
+
+flag new-time
+    Description: get defaultTimeLocale is in time
+    default: True
+
 library
   if impl(ghc >= 6.12)
     GHC-Options:        -Wall -fno-warn-unused-do-bind
@@ -25,9 +30,14 @@ library
                         Network.Web.Server.Params
                         Network.Web.Server.Range
   Build-Depends:        base >= 4 && < 5, parsec >= 3,
-                        network, directory, bytestring, containers, old-locale,
-                        stm,
-                        filepath, time, unix, process, c10k, zlib
+                        network, directory, bytestring, containers, stm,
+                        filepath, unix, process, c10k, zlib
+
+  if flag(new-time)
+    Build-Depends:        time >= 1.5
+  else
+    Build-Depends:        time < 1.5, old-locale
+
 Source-Repository head
   Type:                 git
   Location:             git://github.com/JohnLato/webserver.git
